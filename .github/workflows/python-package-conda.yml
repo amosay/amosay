@@ -1,0 +1,201 @@
+name: Python Package using Conda
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        conda env update --file environment.yml --name base
+    - name: Lint with flake8
+      run: |
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        conda install pytest
+        pytest
+
+print("Strike 2.0")
+print()
+print(
+    "Strike was created to aid you on your financial journey in the stock market by being a reliable tool that helps you assess risk, reward, and the weight of different positions in relation to the size of your portfolio."
+)
+print()
+
+portval = input("What is the total value of your account? ")
+print()
+# sets variable "portval" to total value of user's account
+
+import inquirer
+
+questions = [
+    inquirer.List(
+        'Trade',
+        message="Please select the type of position you will be analyzing",
+        choices=['Long Shares', 'Short Shares'],
+    ),
+]
+answer = inquirer.prompt(questions)
+print(answer["Trade"])
+
+numstocks = input("How many positions will you be analyzing? ")
+print()
+x = int(numstocks)
+# "x" represents the number of times the code will repeat; it is based off of the number of positions the user is analyzing
+
+mktval_list = [0]
+possize_list = [0]
+maxloss_list = [0]
+maxgain_list = [0]
+# assigns a base value to all the lists in the code; the 0 is later removed from the list
+
+while x > 0:
+    print("You are now analyzing a new position.")
+    print()
+
+    mktval = input("What would be the total market value of your position? ")
+    print()
+    # sets variable "mktval" to the potential market value of the user's desired position
+
+    mktval_list.append(mktval)
+    # adds the market value of each position to a list of all market values
+
+    costbasis = input("What is your cost basis? ")
+    print()
+    # sets variable "costbasis" to the average cost of the user's position in reference to the market value
+
+    stop = input("What is your stop loss price? ")
+    print()
+
+    if answer["Trade"] == "Short Shares":
+        while float(stop) <= float(costbasis):
+            print(
+                "Please ensure your stop loss is higher than your cost basis. ")
+            print()
+            stop = input("What is your stop loss price? ")
+            print()
+        pt = input("What is your target price? ")
+        print()
+        while float(pt) >= float(costbasis):
+          print("Please ensure your target is lower than your cost basis. ")
+          pt = input("What is your target price? ")
+          print()
+    else:
+        while float(stop) >= float(costbasis):
+            print(
+                "Please ensure your stop loss is lower than your cost basis. ")
+            print()
+            stop = input("What is your stop loss price? ")
+            print()
+        pt = input("What is your target price? ")
+        print()
+        while float(pt) <= float(costbasis):
+            print("Please ensure your target is higher than your cost basis. ")
+            pt = input("What is your target price? ")
+            print()
+    # assigns variables "stop" and "pt" to the user's desired stop loss price and target price
+
+    if answer["Trade"] == "Short Shares":
+      risk = 1 - (float(stop) / float(costbasis))
+      reward = (float(pt) / float(costbasis)) - 1
+      rr = round(float(reward) / float(risk), 2)
+    else:
+      risk = 1 - (float(stop) / float(costbasis))
+      reward = (float(pt) / float(costbasis)) - 1
+      rr = round(float(reward) / float(risk), 2)
+    # calculates the potential risk-reward ratio of the trade
+
+    print("Your potential reward is currently " + str(rr) +
+          " times your potential risk.")
+    print()
+
+    if answer["Trade"] == "Short Shares": 
+      stopvcb = (float(stop) / float(costbasis)) - 1
+      maxloss = round(float(mktval)*float(stopvcb), 2)
+      maxloss_list.append(maxloss)
+    else:
+      stopvcb = (float(stop) / float(costbasis))
+      maxloss = round(float(mktval) - (float(mktval) / float(stopvcb)), 2)
+      maxloss_list.append(maxloss)
+    # adds the maximum potential loss of the trade to the list of total maximum petential loss across all positions analyzed
+
+    if answer["Trade"] == "Short Shares": 
+      print("If you were to be stopped out of this trade, you would lose " +
+      str(maxloss) + " dollars.")
+    else:
+      print("If you were to be stopped out of this trade, you would lose " +
+      str((maxloss) * -1) + " dollars.")
+
+    ptvscb = (float(pt) / float(costbasis))
+    maxgain = round((float(ptvscb) * float(mktval)) - float(mktval), 2)
+    if maxgain < 0:
+        maxgain = float(maxgain) * -1
+    maxgain_list.append(maxgain)
+    # adds the maximum potential gain of the trade to the list of total maximum petential gain across all positions analyzed
+
+    print("If your price target was to be reached, you would gain " +
+          str(maxgain) + " dollars.")
+    print()
+
+    possize = round(100 * ((float(mktval) / float(portval))), 2)
+    print("You currently have " + str(possize) +
+          "% of your total portfolio value in this trade.")
+    print()
+    possize_list.append(possize)
+    # adds the % size of the position in relation to the total value of the users account and then adds it to the list of total position sizes
+
+    x = x - 1
+
+print("You analyzed " + str(numstocks) + " positions.")
+print()
+
+possize_list.pop(0)
+sumpos = sum(possize_list)
+totalposweight = round(float(sumpos) % float(portval), 2)
+print("These positions amount to " + str(totalposweight) +
+      "% of your total account value.")
+print()
+# calls the values in possize_list and displays the total
+
+maxgain_list.pop(0)
+maxloss_list.pop(0)
+totalopengain = round(sum(maxgain_list), 2)
+totalopenloss = round(sum(maxloss_list), 2)
+gainpct = round(100 * (float(totalopengain) / float(portval)), 2)
+losspct = round(100 * (float(totalopenloss) / float(portval)), 2)
+# calls the total maximum potential gain and loss and displays it as an integer and a percentage
+
+print(
+    "Across all the positions you analyzed, your maximum potential gain is " +
+    str(totalopengain) + " or " + str(gainpct) + "%.")
+print()
+
+if answer["Trade"] == "Short Shares":
+  print(
+    "Across all the positions you analyzed, your maximum potential loss is " +
+    str(totalopenloss) + " or " + str(losspct) + "%. ")
+else:
+  print(
+    "Across all the positions you analyzed, your maximum potential loss is " +
+    str((totalopenloss) * -1) + " or " + str(losspct) + "%. ")
+print()
+
+print("Thank you for choosing Strike.")
